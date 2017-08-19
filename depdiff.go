@@ -1,23 +1,21 @@
-package main
+package depdiff
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"sort"
 	"strings"
 )
 
-func main() {
-	if len(os.Args) != 4 {
-		fmt.Println("Usage: shoulddeploy pkgPath oldCommit newCommit")
-		os.Exit(1)
+func DepDiff(pkgPath, oldCommit, newCommit string) ([]string, error) {
+	filesBytes, err := exec.Command("git", "diff", "--name-only", oldCommit, newCommit).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Exec error: %s. Output: %s", err, string(filesBytes))
 	}
-	pkgPath := os.Args[1]
-	oldCommit := os.Args[2]
-	newCommit := os.Args[3]
-	filesBytes, _ := exec.Command("git", "diff", "--name-only", oldCommit, newCommit).CombinedOutput()
-	depsBytes, _ := exec.Command("go", "list", "-f", `{{ .Deps }}`, pkgPath).CombinedOutput()
+	depsBytes, err := exec.Command("go", "list", "-f", `{{ .Deps }}`, pkgPath).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Exec error: %s. Output: %s", err, string(filesBytes))
+	}
 	depsStr := string(depsBytes)
 	deps := strings.Split(depsStr[1:len(depsStr)-1], " ")
 	deps = append(deps, pkgPath)
@@ -43,13 +41,10 @@ func main() {
 			changedPackages[f] = true
 		}
 	}
-	if len(changedPackages) == 0 {
-		return
-	}
-	changedPkgList := []string{}
+	var changedPkgList []string
 	for pkg := range changedPackages {
 		changedPkgList = append(changedPkgList, pkg)
 	}
 	sort.Strings(changedPkgList)
-	fmt.Println(changedPkgList)
+	return changedPkgList, nil
 }

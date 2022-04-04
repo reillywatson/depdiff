@@ -2,12 +2,13 @@ package depdiff
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
 )
 
-func DepDiff(pkgPath, oldCommit, newCommit string) ([]string, error) {
+func DepDiff(moduleName, pkgPath, oldCommit, newCommit string) ([]string, error) {
 	filesBytes, err := exec.Command("git", "diff", "--name-only", oldCommit, newCommit).CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("Exec error: %s. Output: %s", err, string(filesBytes))
@@ -25,14 +26,22 @@ func DepDiff(pkgPath, oldCommit, newCommit string) ([]string, error) {
 	}
 	files := strings.Split(string(filesBytes), "\n")
 	changedPackages := map[string]bool{}
+	rootPath, err := exec.Command("git", "rev-parse", "--show-toplevel").CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Exec error: %s. Output: %s", err, string(rootPath))
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("Getwd error: %s", wd)
+	}
+	wd = strings.TrimSpace(wd)
+	prefix := strings.TrimPrefix(wd, strings.TrimSpace(string(rootPath)))
+	prefix = strings.TrimPrefix(prefix, "/")
 	for _, f := range files {
-		if !strings.HasPrefix(f, "src/") {
-			continue
-		}
 		if strings.HasSuffix(f, "_test.go") {
 			continue
 		}
-		f = strings.TrimPrefix(f, "src/")
+		f = moduleName + strings.TrimPrefix(f, prefix)
 		if !strings.Contains(f, "/") {
 			continue
 		}

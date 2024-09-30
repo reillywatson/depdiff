@@ -45,9 +45,18 @@ func DepDiff(moduleName, pkgPath, oldCommit, newCommit string) ([]string, error)
 		if !strings.Contains(f, "/") {
 			continue
 		}
-		f = f[:strings.LastIndex(f, "/")]
-		if depMap[f] {
-			changedPackages[f] = true
+		if strings.HasSuffix(f, ".go") {
+			f = f[:strings.LastIndex(f, "/")]
+			if depMap[f] {
+				changedPackages[f] = true
+			}
+		} else {
+			// these may be embedded files, look for any parent directories that are dependencies
+			for k := range depMap {
+				if strings.HasPrefix(f, k) {
+					changedPackages[k] = true
+				}
+			}
 		}
 	}
 	var changedPkgList []string
